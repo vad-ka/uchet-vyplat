@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Учет выплат</title>
+<script>try{if(localStorage.getItem('uchet-vyplat-theme')==='dark')document.documentElement.dataset.theme='dark'}catch(e){}</script>
+<style>
+:root{--bg:#fff;--fg:#1c1c1c;--line:#e3e3e3;--line2:#ccc;--line3:#f0f0f0;--mut:#555;--mut2:#777;--track:#eee;--hov:#f5f5f5;--danger:#b3261e;--wy:#fff6d0;--wyc:#7a5b00;--wr:#fde4e2;color-scheme:light}
+[data-theme=dark]{--bg:#16181c;--fg:#ececec;--line:#33373d;--line2:#4a4f57;--line3:#26292e;--mut:#b0b4ba;--mut2:#8d9299;--track:#2c3036;--hov:#23262b;--danger:#ff8a80;--wy:#3a3213;--wyc:#ffd966;--wr:#401b19;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+.app{display:grid;grid-template-columns:340px 1fr;gap:24px;max-width:960px;margin:0 auto;padding:24px}
+@media(max-width:720px){.app{grid-template-columns:1fr;padding:14px}}
+h1{font-size:20px;margin:0}
+.top{grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:4px}
+h2{font-size:15px;margin:0 0 10px;color:var(--mut);font-weight:600}
+.col{display:flex;flex-direction:column;gap:10px}
+button{font:inherit;cursor:pointer;border-radius:8px;padding:11px 14px;border:1px solid var(--line2);background:var(--bg);color:var(--fg)}
+button:hover{background:var(--hov)}
+button.in{color:#1c1c1c;background:#ffd23f;border-color:#ffd23f;font-weight:600;text-align:left}
+button.in:hover{background:#f5c518}
+button.in.on{outline:2px solid var(--fg)}
+button.danger{color:var(--danger)}
+button:disabled{opacity:.45;cursor:not-allowed}
+.panel{border:1px solid var(--line);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:8px}
+label{font-size:13px;color:var(--mut);display:flex;flex-direction:column;gap:3px}
+input{background:var(--bg);color:var(--fg);font:inherit;padding:9px 10px;border:1px solid var(--line2);border-radius:8px;width:100%}
+input:focus{outline:2px solid #ffd23f;border-color:var(--line2)}
+.err{color:var(--danger);font-size:13px;min-height:1em}
+.list button{width:100%;text-align:left;margin-bottom:6px}
+.list button.sel{border-color:var(--fg)}
+.who{font-size:20px;font-weight:600;margin-bottom:12px;word-break:break-word}
+.totals{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
+@media(max-width:480px){.totals{grid-template-columns:1fr}}
+.box{border:1px solid var(--line);border-radius:10px;padding:12px}
+.box small{color:var(--mut2);display:block;font-size:13px}
+.box b{font-size:19px;word-break:break-word}
+.bar{height:18px;background:var(--track);border-radius:9px;overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:#2e9e4f;transition:width .3s,background .3s}
+.pct{display:flex;justify-content:space-between;margin:6px 0 10px;font-size:14px}
+.warn{padding:10px 12px;border-radius:8px;font-weight:600;margin-bottom:12px}
+.warn.y{background:var(--wy);color:var(--wyc)}
+.warn.r{background:var(--wr);color:var(--danger)}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}
+.hist{border-top:1px solid var(--line);padding-top:10px}
+.row{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid var(--line3);font-size:14px}
+.row span{color:var(--mut2);font-size:12px;display:block}
+.row.old{opacity:.5;text-decoration:line-through}
+.row.lim b{color:var(--mut)}
+.empty{color:var(--mut2);padding:20px 0}
+.mini{padding:2px 8px;font-size:13px;border-radius:6px}
+.rowb{display:flex;gap:6px;align-items:center}
+.hint{font-size:13px;color:var(--danger);min-height:1em}
+.tip{font-size:13px;color:var(--mut2)}
+.help{font-size:13px;color:var(--mut);border:1px solid var(--line);border-radius:10px;padding:8px 12px}
+.help summary{cursor:pointer;font-weight:600}
+.help ol{margin:8px 0 0;padding-left:18px}.help li{margin-bottom:4px}
+</style>
+</head>
+<body>
+<div class="app">
+<div class="top"><h1>Учет выплат</h1><button id="th" title="Переключить светлый или тёмный фон">Тёмный фон</button></div>
+
+<div class="col">
+  <button class="in" data-p="add" title="Создать нового получателя (фамилия и имя обязательны)">+ Добавить получателя</button>
+  <button class="in" data-p="pick" title="Показать список созданных получателей">Выбрать получателя</button>
+  <button class="in" data-p="limit" title="Задать максимальную сумму выплат (необязательно)">Установить лимит</button>
+  <button class="in" data-p="pay" title="Записать выплату выбранному получателю">Выплата</button>
+  <div id="panel"></div>
+  <div class="actions" style="margin:6px 0 0"><button id="ex" title="Скачать все данные в файл (резервная копия)">Экспорт</button><button id="im" title="Загрузить данные из ранее сохранённого файла">Импорт</button><input type="file" id="fi" accept="application/json,.json" hidden></div>
+  <details class="help"><summary>Как пользоваться</summary><ol>
+    <li>Нажмите «Добавить получателя» и введите фамилию, имя и при желании отчество.</li>
+    <li>По желанию задайте лимит кнопкой «Установить лимит». Новый лимит заменяет прежний, история лимитов сохраняется.</li>
+    <li>Каждую выплату вносите кнопкой «Выплата». Справа считаются сумма, остаток и процент лимита.</li>
+    <li>Шкала: зелёная до 80%, жёлтая от 80% до 100%, красная от 100%.</li>
+    <li>✎ и ✕ в истории меняют и удаляют записи. «Сбросить» обнуляет счёт, но оставляет выплаты в истории.</li>
+    <li>Данные хранятся только в этом браузере. Делайте «Экспорт» для резервной копии.</li>
+  </ol></details>
+</div>
+
+<div id="view"></div>
+</div>
+
+<script>
+const KEY='uchet-vyplat-v1';
+let S={list:[],sel:null};
+try{const r=localStorage.getItem(KEY);if(r)S=JSON.parse(r)}catch(e){}
+if(!Array.isArray(S.list))S={list:[],sel:null};
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
+function ask(msg,yes,label,single){
+  const o=document.createElement('div');
+  o.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;padding:16px;z-index:9';
+  o.innerHTML=`<div style="background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:12px;padding:18px;max-width:340px;width:100%"><p style="margin:0 0 14px">${esc(msg)}</p><div style="display:flex;gap:8px;justify-content:flex-end">${single?'':'<button class="no">Отмена</button>'}<button class="in yes">${label||'Да'}</button></div></div>`;
+  document.body.appendChild(o);
+  if(!single)o.querySelector('.no').onclick=()=>o.remove();
+  o.querySelector('.yes').onclick=()=>{o.remove();yes()};
+}
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+const fmt=n=>new Intl.NumberFormat('ru-RU',{style:'currency',currency:'RUB'}).format(n);
+const fdate=d=>d?d.split('-').reverse().join('.'):'';
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const today=()=>{const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')};
+const parseMoney=v=>{const s=String(v).replace(/\s/g,'').replace(',','.');if(!/^\d+(\.\d{1,2})?$/.test(s))return NaN;return Math.round(parseFloat(s)*100)/100};
+const cur=()=>S.list.find(r=>r.id===S.sel);
+const name=r=>[r.last,r.first,r.middle].filter(Boolean).join(' ');
+const total=r=>r.payments.filter(p=>!p.old).reduce((a,p)=>a+p.amount,0);
+const limitOf=r=>r.limits.length?r.limits[r.limits.length-1].amount:null;
+const over=(r,v,ex)=>{const l=limitOf(r);if(l===null)return 0;const s=r.payments.filter(p=>!p.old&&p.id!==ex).reduce((a,p)=>a+p.amount,0);return Math.round((s+v-l)*100)/100};
+const hintOver=(r,ex)=>{f1.oninput=()=>{const v=parseMoney(f1.value);const o=isNaN(v)?0:over(r,v,ex);h.textContent=o>0?'Превышение лимита на '+fmt(o):''}};
+
+let panel=null,editing=null;
+const P=document.getElementById('panel');
+document.querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>{panel=panel===b.dataset.p?null:b.dataset.p;editing=null;draw()});
+
+function drawPanel(){
+  document.querySelectorAll('[data-p]').forEach(b=>b.classList.toggle('on',b.dataset.p===panel));
+  const r=cur();
+  if(!panel){P.innerHTML='';return}
+  if(panel==='edit'&&r&&editing){
+    const isP=editing.t==='p',x=(isP?r.payments:r.limits).find(q=>q.id===editing.id);
+    if(!x){panel=null;editing=null;P.innerHTML='';return}
+    P.innerHTML=`<div class="panel"><h2>${isP?'Изменить выплату':'Изменить лимит'}</h2><label>Сумма, ₽<input id="f1" inputmode="decimal" value="${String(x.amount).replace('.',',')}"></label>`+(isP?`<label>Дата<input id="f2" type="date" value="${x.date}"></label><label>Назначение платежа<input id="f3" value="${esc(x.purpose||'')}"></label><div class="hint" id="h"></div>`:'')+`<div class="err" id="e"></div><button class="in" id="ok">Сохранить</button><button id="cn">Отмена</button></div>`;
+    if(isP&&!x.old)hintOver(r,x.id);
+    cn.onclick=()=>{panel=null;editing=null;draw()};
+    ok.onclick=()=>{
+      const v=parseMoney(f1.value);
+      if(isNaN(v)||v<=0){e.textContent='Введите сумму в рублях, например 5000 или 750,50';return}
+      if(isP){
+        if(!f2.value){e.textContent='Укажите дату';return}
+        x.date=f2.value;x.purpose=f3.value.trim();
+      }
+      x.amount=v;save();panel=null;editing=null;draw();
+    };
+    return;
+  }
+  if(panel==='add'){
+    P.innerHTML=`<div class="panel"><label>Фамилия *<input id="f1" autocomplete="off" placeholder="Иванов"></label>
+    <label>Имя *<input id="f2" autocomplete="off" placeholder="Иван"></label>
+    <label>Отчество<input id="f3" autocomplete="off" placeholder="Иванович"></label>
+    <div class="tip">Фамилия и имя обязательны, отчество по желанию.</div><div class="err" id="e"></div><button class="in" id="ok">Добавить</button></div>`;
+    ok.onclick=()=>{
+      const a=f1.value.trim(),b=f2.value.trim(),c=f3.value.trim();
+      if(!a||!b){e.textContent='Заполните фамилию и имя';return}
+      const n={id:uid(),last:a,first:b,middle:c,limits:[],payments:[]};
+      S.list.push(n);S.sel=n.id;save();panel=null;draw();
+    };return;
+  }
+  if(panel==='pick'){
+    P.innerHTML=S.list.length?`<div class="panel list">${S.list.map(x=>`<button data-id="${x.id}" class="${x.id===S.sel?'sel':''}">${esc(name(x))}</button>`).join('')}</div>`:'<div class="panel empty">Получателей пока нет</div>';
+    P.querySelectorAll('[data-id]').forEach(b=>b.onclick=()=>{S.sel=b.dataset.id;save();panel=null;draw()});
+    return;
+  }
+  if(!r){P.innerHTML='<div class="panel empty">Сначала выберите или добавьте получателя</div>';return}
+  if(panel==='limit'){
+    P.innerHTML=`<div class="panel"><label>Лимит, ₽<input id="f1" inputmode="decimal" placeholder="0,00" autocomplete="off"></label>
+    <div class="tip">Сумма в рублях, например 50000 или 1250,50. Лимит необязателен.</div><div class="err" id="e"></div><button class="in" id="ok">Установить</button></div>`;
+    ok.onclick=()=>{
+      const v=parseMoney(f1.value);
+      if(isNaN(v)||v<=0){e.textContent='Введите сумму в рублях, например 50000 или 1250,50';return}
+      r.limits.push({id:uid(),amount:v,date:today()});save();panel=null;draw();
+    };return;
+  }
+  if(panel==='pay'){
+    P.innerHTML=`<div class="panel"><label>Сумма, ₽<input id="f1" inputmode="decimal" placeholder="0,00" autocomplete="off"></label>
+    <label>Дата<input id="f2" type="date" value="${today()}"></label>
+    <label>Назначение платежа<input id="f3" autocomplete="off"></label>
+    <div class="tip">Выплату можно внести и сверх лимита: появится предупреждение.</div><div class="hint" id="h"></div><div class="err" id="e"></div><button class="in" id="ok">Добавить выплату</button></div>`;
+    hintOver(r,null);
+    ok.onclick=()=>{
+      const v=parseMoney(f1.value);
+      if(isNaN(v)||v<=0){e.textContent='Введите сумму в рублях, например 5000 или 750,50';return}
+      if(!f2.value){e.textContent='Укажите дату';return}
+      r.payments.push({id:uid(),amount:v,date:f2.value,purpose:f3.value.trim()});save();panel=null;draw();
+    };
+  }
+}
+
+function drawView(){
+  const V=document.getElementById('view'),r=cur();
+  if(!r){V.innerHTML='<div class="empty"><b>Начните с получателя</b><br>Нажмите «Добавить получателя» слева или выберите ранее созданного. Подробнее в «Как пользоваться».</div>';return}
+  const sum=total(r),lim=limitOf(r),rest=lim===null?null:lim-sum;
+  const pct=lim?sum/lim*100:null;
+  let color='#2e9e4f',warn='';
+  if(pct!==null){
+    if(pct>=100){color='#d93025';warn='<div class="warn r">Лимит исчерпан'+(pct>100?' и превышен на '+fmt(sum-lim):'')+'</div>'}
+    else if(pct>80){color='#f2b600';warn='<div class="warn y">Внимание: лимит почти исчерпан, остаток '+fmt(rest)+'</div>'}
+  }
+  const btns=(t,id)=>`<button class="mini" data-e="${t}:${id}" title="Изменить">✎</button><button class="mini danger" data-d="${t}:${id}" title="Удалить">✕</button>`;
+  const items=[
+    ...r.limits.map(l=>({t:'l',d:l.date,x:l})),
+    ...r.payments.map(p=>({t:'p',d:p.date,x:p}))
+  ].sort((a,b)=>a.d<b.d?1:a.d>b.d?-1:0);
+  V.innerHTML=`<div class="who">${esc(name(r))}</div>
+  <div class="totals">
+   <div class="box"><small>Сумма</small><b>${fmt(sum)}</b></div>
+   <div class="box"><small>Лимит</small><b>${lim===null?'не задан':fmt(lim)}</b></div>
+   <div class="box"><small>Остаток</small><b>${rest===null?'—':fmt(rest)}</b></div>
+  </div>
+  ${warn}${lim===null?'<div class="tip" style="margin-bottom:8px">Лимит не задан. Нажмите «Установить лимит», чтобы появилась шкала.</div>':''}
+  <div class="bar"><i style="width:${pct===null?0:Math.min(100,pct)}%;background:${color}"></i></div>
+  <div class="pct"><span>Использовано лимита</span><b>${pct===null?'—':pct.toFixed(1).replace('.',',')+' %'}</b></div>
+  <div class="actions"><button id="rs" title="Обнулить сумму; выплаты останутся в истории">Сбросить</button><button id="dl" class="danger" title="Удалить получателя и всю его историю">Удалить получателя</button></div>
+  <div class="hist"><h2>История</h2>${items.length?items.map(i=>i.t==='l'
+   ?`<div class="row lim"><div>Лимит<span>${fdate(i.d)}</span></div><div class="rowb"><b>${fmt(i.x.amount)}</b>${btns('l',i.x.id)}</div></div>`
+   :`<div class="row ${i.x.old?'old':''}"><div>${esc(i.x.purpose||'Выплата')}<span>${fdate(i.d)}${i.x.old?' · сброшено':''}</span></div><div class="rowb"><b>${fmt(i.x.amount)}</b>${btns('p',i.x.id)}</div></div>`).join(''):'<div class="empty">Записей пока нет</div>'}</div>`;
+  V.querySelectorAll('[data-e]').forEach(b=>b.onclick=()=>{const[t,id]=b.dataset.e.split(':');editing={t,id};panel='edit';draw()});
+  V.querySelectorAll('[data-d]').forEach(b=>b.onclick=()=>{const[t,id]=b.dataset.d.split(':');ask('Удалить запись?',()=>{if(t==='p')r.payments=r.payments.filter(q=>q.id!==id);else r.limits=r.limits.filter(q=>q.id!==id);save();draw()},'Удалить')});
+  rs.onclick=()=>{
+    if(!r.payments.some(p=>!p.old))return;
+    ask('Обнулить счёт получателя? Выплаты останутся в истории как сброшенные.',()=>{r.payments.forEach(p=>p.old=true);save();draw()},'Сбросить')
+  };
+  dl.onclick=()=>{
+    ask('Удалить получателя и всю его историю?',()=>{S.list=S.list.filter(x=>x.id!==r.id);S.sel=S.list.length?S.list[0].id:null;save();draw()},'Удалить')
+  };
+}
+function draw(){drawPanel();drawView()}
+const TK='uchet-vyplat-theme';
+function applyTheme(){const d=document.documentElement.dataset.theme==='dark';th.textContent=d?'Светлый фон':'Тёмный фон'}
+th.onclick=()=>{const d=document.documentElement.dataset.theme!=='dark';document.documentElement.dataset.theme=d?'dark':'light';try{localStorage.setItem(TK,d?'dark':'light')}catch(e){}applyTheme()};
+applyTheme();
+ex.onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(S,null,1)],{type:'application/json'}));a.download='uchet-vyplat-'+today()+'.json';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1000)};
+im.onclick=()=>fi.click();
+fi.onchange=()=>{const f=fi.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>{try{const d=JSON.parse(rd.result);if(!d||!Array.isArray(d.list)||!d.list.every(x=>x&&typeof x.id==='string'&&typeof x.last==='string'&&Array.isArray(x.limits)&&Array.isArray(x.payments)))throw 0;ask('Заменить текущие данные данными из файла?',()=>{S={list:d.list,sel:d.list.some(x=>x.id===d.sel)?d.sel:(d.list[0]?d.list[0].id:null)};save();panel=null;editing=null;draw()},'Заменить')}catch(e){ask('Не удалось прочитать файл: неверный формат',()=>{},'OK',true)}};rd.readAsText(f);fi.value=''};
+draw();
+</script>
+</body>
+</html>
